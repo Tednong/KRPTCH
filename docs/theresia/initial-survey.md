@@ -44,3 +44,11 @@ Source ROM is not committed. Provided by the user via private link; kept only in
 
 ## Current blocker / decision
 Reinsertion needs the (offset,length) record format fully decoded so translated text can be relocated. Options: (A) keep every string in place and within its original byte length (pad with spaces) — constrains translation length; (B) decode the VM and relocate — flexible, needs more RE.
+
+## Update 2: script VM findings (ARM9 static analysis; runtime unconfirmed)
+- Script VM state at RAM `0x022dcef4`: `+0x20` = adv code buffer, `+0x24` = PC. Operand readers: `0x206571c` (s8), `0x20656ec` (s16), `0x206569c` (s32), `0x206573c` (text ref reader: `len:s8`, `off:s32`, returns text pointer = txtbase + off). Text buffer pointer is stored via `0x206421c`, script buffer via `0x206420c` by the scene loader `0x2030ec4`.
+- Six handlers call the text-ref reader (`0x2066178`, `0x2066220`, `0x206629c`, `0x2066b64`, `0x2067124`, `0x206747c`). Instruction layout for the first two: `<op> <argc:s8> <len:s8> <off:s32>` = 7 bytes (argc format arguments are popped from the VM stack).
+- Opcodes seen carrying text refs in the data (all with argc=0): `0x10` (7,050 refs in scene001), `0x14` (2,123), `0x84` (821). `0x14` records often span several `0x10` slices (page-level text vs line-level), so reinsertion must treat slices as a laminar family and remap every reference.
+- Candidate reference set covers ~94% of scene001 text; uncovered runs (~14.5 KB in 10 runs: item/journal descriptions, help text) use another addressing path (unresolved).
+- Text object formatter limits a segment to ~64 chars; Hangul cells are 15 px wide, so line length budgets must be re-derived from the layout code before translating.
+- Tooling: `tools/theresia/lib.py` (ROM/script loaders, candidate reference scanner), `tools/theresia/armdis.py` (ARM9 disassembler helper). These read a user-provided ROM path and contain no ROM data.
