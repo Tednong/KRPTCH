@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "emucap-control": {
+      "command": "bash",
+      "args": [".claude/emucap/run.sh", "emucap-mcp"]
+    },
+    "emucap-track": {
+      "command": "bash",
+      "args": [".claude/emucap/run.sh", "emucap-track-mcp"]
+    }
+  }
+}
