@@ -39,7 +39,7 @@ LINE_CAP=216
 def is_label(b): return len(b)<=20 and not re.search(r'[.,!?\u2026"\u201d:;]$|\.\.\.',b)
 def limit(body):
     p=px(body)
-    if is_label(body): return max(int(p*1.35)+1,60)
+    if is_label(body): return max(int(p*1.5)+1,72)
     return max(int(p*1.10)+1,LINE_CAP)
 def validate(src,ko):
     errs=[]

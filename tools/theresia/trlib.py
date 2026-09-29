@@ -1,7 +1,7 @@
 """Translation store helpers: split unit text into (prefix, body, suffix), keyed by body."""
 import re, json, os
-PFX=re.compile(r'^(?:[　 ]|%[WC]\d+)*')
-SFX=re.compile(r'(?:[　 ]|%[WC]\d+)*$')
+PFX=re.compile(r'^(?:[　 ]|%W\d+)*')
+SFX=re.compile(r'(?:[　 ]|%W\d+)*$')
 def split_unit(s):
     m=PFX.match(s); pre=m.group(0)
     rest=s[len(pre):]
