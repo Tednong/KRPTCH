@@ -55,3 +55,57 @@ def partition(adv,txt):
     for i,(op,L,off) in d.items():
         iv.setdefault((off,L),[]).append(i)
     return d,conf,iv
+
+def all_refs(adv,txt):
+    out=[]
+    for i in range(len(adv)-6):
+        if adv[i] in (0x10,0x14,0x84) and adv[i+1]==0:
+            L=adv[i+2]; off=struct.unpack_from('<I',adv,i+3)[0]
+            if 0<L<=127 and off+L<=len(txt) and printable(txt[off:off+L]): out.append((i,adv[i],7,L,off))
+    for i in range(len(adv)-5):
+        if adv[i] in (0x1c,0xf2):
+            L=adv[i+1]; off=struct.unpack_from('<I',adv,i+2)[0]
+            if 0<L<=127 and off+L<=len(txt) and printable(txt[off:off+L]): out.append((i,adv[i],6,L,off))
+    return out
+
+def resolve(adv,txt):
+    """Accepted disjoint refs {(off,L): [(adv_pos,op,size)]}, plus unresolved gaps."""
+    rf=all_refs(adv,txt)
+    by_pos={x[0]:x for x in rf}
+    sup={}
+    for x in rf:
+        i,op,sz,L,off=x; c=0
+        for d in (6,7,8,9):
+            for j in (i+d,i-d):
+                y=by_pos.get(j)
+                if y and (y[4]==off+L or y[4]+y[3]==off): c+=1
+        sup[i]=c
+    groups={}
+    for x in rf: groups.setdefault((x[4],x[3]),[]).append(x)
+    def gs(k): return max(sup[x[0]] for x in groups[k])
+    occ=bytearray(len(txt)); accepted={}
+    def free(off,L): return not any(occ[off:off+L])
+    # phase 1: chain-supported, best support first then longer
+    for k in sorted([k for k in groups if gs(k)>0 and k[1]>=2],key=lambda k:(-gs(k),-k[1],k)):
+        if free(*k):
+            accepted[k]=groups[k]
+            for q in range(k[0],k[0]+k[1]): occ[q]=1
+    # phase 2: unsupported refs must be free and touch an accepted edge; longest first, repeat
+    rest=sorted([k for k in groups if k not in accepted and k[1]>=2],key=lambda k:(-k[1],k))
+    n=len(txt); changed=True
+    while changed:
+        changed=False
+        for k in rest:
+            if k in accepted: continue
+            a,b=k[0],k[0]+k[1]
+            if any(occ[a:b]): continue
+            if (a==0 or occ[a-1]) or (b==n or occ[b]):
+                accepted[k]=groups[k]
+                for q in range(a,b): occ[q]=1
+                changed=True
+    gaps=[];s0=None
+    for q,c in enumerate(occ):
+        if not c and s0 is None: s0=q
+        if c and s0 is not None: gaps.append((s0,q)); s0=None
+    if s0 is not None: gaps.append((s0,len(occ)))
+    return accepted,gaps,sup
