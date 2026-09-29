@@ -1,14 +1,14 @@
 {
-  "extraKnownMarketplaces": {
-    "kr-patch": {
-      "source": {
-        "source": "github",
-        "repo": "mcpads/create-retro-game-kr-patch",
-        "ref": "main"
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/install-hanpatch.sh"
+          }
+        ]
       }
-    }
-  },
-  "enabledPlugins": {
-    "create-kr-patch@kr-patch": true
+    ]
   }
 }
