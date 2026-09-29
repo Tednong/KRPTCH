@@ -31,3 +31,16 @@ Source ROM is not committed. Provided by the user via private link; kept only in
 ## Human decisions needed (to be presented at convergence)
 - Scope: full script (~1 MB) vs main scenes only; treatment of `sub/`, `opt/`, `opt2/` variants.
 - Font/encoding approach and quality bar; translation source is the English text, target Korean.
+
+## Update: findings after ARM9 static analysis (facts unless marked)
+- ARM9 is uncompressed, loaded at `0x02000000`. Overlays: only 5 real overlays (RAM `0x022dd9a0`), not 160.
+- **Font**: `data/a.NFTR` (LZ10) is a standard NitroSDK NFTR loaded at startup (loader refs at ARM9 `0x2000e10`/`0x2000ff4`, init via `NNS_G2dFont*`-style calls `0x2043bc8` / glyph lookup `0x2043bec`).
+  - FINF encoding byte = `02` (Shift-JIS). Cell 15x16 px, 60 B/glyph (2bpp), 92 glyphs, proportional widths (HDWC).
+  - CMAP: type-1 table for `0x20..0x7A`, plus one type-2 (scan) map. Latin only, no Hangul.
+- **Text pipeline**: formatter around `0x2008300..0x2008a90` is printf-like (`%W`, `%D`, `%C`, `%S`, `%c`, `%d`, `%s`, `%w`, `%%`), writing u16 char codes (+ per-char x positions/flags) into 0x1d0-byte text objects (max ~64 chars per segment). `0x2009154` converts Shift-JIS bytes to u16 codes (lead bytes `81-9F`, `E0-FC`).
+  - Consequence (candidate design): Hangul can be stored as Shift-JIS-shaped 2-byte codes mapped in a rebuilt NFTR CMAP, no engine code change needed for rendering. Needs runtime confirmation.
+- **Script container**: `*.adv` is LZ10 -> bytecode (starts with u32 length). Nodes contain `a7 42 <u32 next>` links, `80 <u32>` immediate pushes, `08 04 83 80 <n>` line indexes. `*.txt.txt` has **no separators**; text is addressed as (offset, length) via records in `.adv`. In `scene004` records of the form `14 00 <len8> <off32>` tile the text exactly (65 records, 0 gaps). Generalising to larger scenes (lengths > 255, false positives) is **unresolved**; the script VM interpreter has not been located (no large jump tables in ARM9/overlays; likely compare chains).
+- Emulator-free static route is slow; a live emulator (DeSmuME fork via emucap) would speed VM decoding but has not been shown to run in this container.
+
+## Current blocker / decision
+Reinsertion needs the (offset,length) record format fully decoded so translated text can be relocated. Options: (A) keep every string in place and within its original byte length (pad with spaces) — constrains translation length; (B) decode the VM and relocate — flexible, needs more RE.
